@@ -1,50 +1,52 @@
-package ui
+package main
 
 import (
 	_ "embed"
 	"image/color"
 
 	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/theme"
+	"fyne.io/fyne/v2/widget"
 )
 
-//go:embed images/start.svg
+//go:embed data/images/start.svg
 var startIconBytes []byte
 var startIconRes fyne.Resource
 
-//go:embed images/stop.svg
+//go:embed data/images/stop.svg
 var stopIconBytes []byte
 var stopIconRes fyne.Resource
 
-//go:embed images/mine.svg
+//go:embed data/images/mine.svg
 var mineIconBytes []byte
 var mineIconRes fyne.Resource
 
-//go:embed images/deposit.svg
+//go:embed data/images/deposit.svg
 var depositIconBytes []byte
 var depositIconRes fyne.Resource
 
-//go:embed images/withdraw.svg
+//go:embed data/images/withdraw.svg
 var withdrawIconBytes []byte
 var withdrawIconRes fyne.Resource
 
-//go:embed images/search.svg
+//go:embed data/images/search.svg
 var searchIconBytes []byte
 var searchIconRes fyne.Resource
 
-//go:embed images/updown.svg
+//go:embed data/images/updown.svg
 var upDownIconBytes []byte
 var upDownIconRes fyne.Resource
 
-//go:embed images/parent.svg
+//go:embed data/images/parent.svg
 var parentIconBytes []byte
 var parentIconRes fyne.Resource
 
-//go:embed images/home.svg
+//go:embed data/images/home.svg
 var homeIconBytes []byte
 var homeIconRes fyne.Resource
 
-//go:embed images/calculator.svg
+//go:embed data/images/calculator.svg
 var calculatorIconBytes []byte
 var calculatorIconRes fyne.Resource
 
@@ -104,8 +106,6 @@ var lightScheme = map[fyne.ThemeColorName]color.Color{
 	theme.ColorPurple:                color.RGBA{0x91, 0x41, 0xac, 0xff}, // Adwaita color name @purple_3
 	theme.ColorRed:                   color.RGBA{0xe0, 0x1b, 0x24, 0xff}, // Adwaita color name @red_3
 	theme.ColorYellow:                color.RGBA{0xf6, 0xd3, 0x2d, 0xff}, // Adwaita color name @yellow_3
-	// theme.ColorNameSeparator: color.RGBA{0x00, 0x00, 0x00, 0x00},
-	// theme.ColorNameSelection: color.RGBA{0xff, 0x00, 0x00, 0xff},
 }
 
 type SidechainTheme struct{}
@@ -172,4 +172,40 @@ func (t SidechainTheme) Font(style fyne.TextStyle) fyne.Resource {
 
 func (t SidechainTheme) Size(name fyne.ThemeSizeName) float32 {
 	return theme.DefaultTheme().Size(name)
+}
+
+// Custom canvas objects
+type ThemedRectangle struct {
+	widget.BaseWidget
+
+	rect *canvas.Rectangle
+
+	ColorName       fyne.ThemeColorName
+	BorderWidth     float32
+	BorderColorName fyne.ThemeColorName
+	CornerRadius    float32
+}
+
+func NewThemedRectangle(colorName fyne.ThemeColorName) *ThemedRectangle {
+	t := &ThemedRectangle{
+		ColorName: colorName,
+		rect: canvas.NewRectangle(fyne.CurrentApp().Settings().Theme().Color(colorName,
+			fyne.CurrentApp().Settings().ThemeVariant())),
+	}
+	t.ExtendBaseWidget(t)
+	return t
+}
+
+func (t *ThemedRectangle) Refresh() {
+	settings := fyne.CurrentApp().Settings()
+	theme := settings.Theme()
+	t.rect.FillColor = theme.Color(t.ColorName, settings.ThemeVariant())
+	t.rect.StrokeWidth = t.BorderWidth
+	t.rect.StrokeColor = theme.Color(t.BorderColorName, settings.ThemeVariant())
+	t.rect.CornerRadius = t.CornerRadius
+	t.BaseWidget.Refresh()
+}
+
+func (t *ThemedRectangle) CreateRenderer() fyne.WidgetRenderer {
+	return widget.NewSimpleRenderer(t.rect)
 }

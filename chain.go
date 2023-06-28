@@ -1,4 +1,4 @@
-package chain
+package main
 
 type ChainData struct {
 	Regtest int    `json:"regtest"`
