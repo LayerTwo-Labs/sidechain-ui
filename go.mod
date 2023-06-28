@@ -1,8 +1,11 @@
-module github.com/ismyhc/sidechain-ui
+module sidechain-ui
 
 go 1.20
 
-require fyne.io/fyne/v2 v2.3.6-0.20230620193502-28dc6f14f62e
+require (
+	fyne.io/fyne/v2 v2.3.6-0.20230620193502-28dc6f14f62e
+	github.com/biter777/processex v0.0.0-20210102170504-01bb369eda71
+)
 
 require (
 	fyne.io/systray v1.10.1-0.20230602210930-b6a2d6ca2a7b // indirect
