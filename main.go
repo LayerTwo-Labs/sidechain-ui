@@ -11,19 +11,29 @@ import (
 	"strconv"
 	"strings"
 
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
+
 	"github.com/biter777/processex"
 )
 
 //go:embed binaries/linux-testchaind
 var linuxBytes []byte
 
-//go:embed default.conf
-var defaultConfBytes []byte
+//go:embed sidechain.conf
+var sidechainConfBytes []byte
 
+//go:embed drivechain.conf
+var drivechainConfBytes []byte
+
+// TODO: Make these configurable in UI
 const (
-	DATA_DIR  = ".testchain"
-	BIN_NAME  = "testchaind"
-	CONF_NAME = "testchain.conf"
+	sidechainDirName  = ".testchain"
+	sidechainBinName  = "testchaind"
+	sidechainConfName = "testchain.conf"
+	drivechainDirName = ".drivechain"
+	drivehainBinName  = "drivechaind"
+	drivehainConfName = "drivechain.conf"
 )
 
 var (
@@ -32,14 +42,19 @@ var (
 )
 
 var (
-	chainDir  string
-	confDir   string
-	chainData ChainData
+	sidechainDir        string
+	sidechainConfDir    string
+	sidechainChainData  ChainData
+	drivechainDir       string
+	drivechainConfDir   string
+	drivechainChainData ChainData
 )
 
 func main() {
 	dirSetup()
-	as = NewAppState("com.ismyhc.sidechain-ui", "Sidechain UI")
+	name := strings.ReplaceAll(sidechainDirName, ".", "")
+	caser := cases.Title(language.English)
+	as = NewAppState("com.ismyhc.sidechain-ui", caser.String(name))
 	mui = NewMainUi(as)
 
 	launchChain()
@@ -52,21 +67,63 @@ func dirSetup() {
 		log.Fatal(err)
 	}
 
-	chainDir = homeDir + string(os.PathSeparator) + DATA_DIR
-	if _, err := os.Stat(chainDir); os.IsNotExist(err) {
-		os.MkdirAll(chainDir, 0o755)
+	// Look for drivechain and bail if not found
+	drivechainDir = homeDir + string(os.PathSeparator) + drivechainDirName
+	if _, err := os.Stat(drivechainDir); os.IsNotExist(err) {
+		// Drive chain not found at default location
+		log.Fatal(err)
 	}
 
-	confDir = chainDir + string(os.PathSeparator) + CONF_NAME
-	if _, err := os.Stat(confDir); os.IsNotExist(err) {
-		err = os.WriteFile(confDir, defaultConfBytes, 0o755)
+	// Find drivechain.conf if not there write default
+	// TODO: Copy old write ours?
+	drivechainConfDir = drivechainDir + string(os.PathSeparator) + drivehainConfName
+	if _, err := os.Stat(drivechainConfDir); os.IsNotExist(err) {
+		err = os.WriteFile(drivechainConfDir, drivechainConfBytes, 0o755)
 		if err != nil {
 			log.Fatal(err)
 		}
 	}
 
-	// load
-	readFile, err := os.Open(confDir)
+	// Look for sidechain dir and create if not found
+	sidechainDir = homeDir + string(os.PathSeparator) + sidechainDirName
+	if _, err := os.Stat(sidechainDir); os.IsNotExist(err) {
+		os.MkdirAll(sidechainDir, 0o755)
+	}
+
+	// Find sidechains conf and if not found write default
+	sidechainConfDir = sidechainDir + string(os.PathSeparator) + sidechainConfName
+	if _, err := os.Stat(sidechainConfDir); os.IsNotExist(err) {
+		err = os.WriteFile(sidechainConfDir, sidechainConfBytes, 0o755)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+
+	// Load in drivechain conf
+	loadConf(drivechainConfDir, &drivechainChainData)
+
+	// Load in sidechain conf
+	loadConf(sidechainConfDir, &sidechainChainData)
+
+	// Write sidechain binary
+	target := runtime.GOOS
+	switch target {
+	case "darwin":
+		break
+	case "linux":
+		if _, err := os.Stat(sidechainDir + sidechainBinName); os.IsNotExist(err) {
+			err = os.WriteFile(sidechainDir+sidechainBinName, linuxBytes, 0o755)
+			if err != nil {
+				log.Fatal(err)
+			}
+		}
+	case "windows":
+		break
+	}
+}
+
+func loadConf(path string, chainData *ChainData) {
+	readFile, err := os.Open(path)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -100,26 +157,9 @@ func dirSetup() {
 	}
 
 	jsonData, _ := json.Marshal(confMap)
-
-	var chainData ChainData
 	err = json.Unmarshal(jsonData, &chainData)
 	if err != nil {
 		log.Fatal(err)
-	}
-
-	target := runtime.GOOS
-	switch target {
-	case "darwin":
-		break
-	case "linux":
-		if _, err := os.Stat(chainDir + BIN_NAME); os.IsNotExist(err) {
-			err = os.WriteFile(chainDir+BIN_NAME, linuxBytes, 0o755)
-			if err != nil {
-				log.Fatal(err)
-			}
-		}
-	case "windows":
-		break
 	}
 }
 
@@ -147,16 +187,16 @@ func killChain() {
 }
 
 func getChainProcess() (*os.Process, error) {
-	process, _, err := processex.FindByName(BIN_NAME)
+	process, _, err := processex.FindByName(sidechainBinName)
 	if err == processex.ErrNotFound {
-		fmt.Printf("Process %v not running", BIN_NAME)
+		fmt.Printf("Process %v not running", sidechainBinName)
 		return nil, err
 	}
 	if err != nil {
-		fmt.Printf("Process %v find error: %v", BIN_NAME, err)
+		fmt.Printf("Process %v find error: %v", sidechainBinName, err)
 		return nil, err
 	}
-	fmt.Printf("Process %v PID: %v", BIN_NAME, process[0].Pid)
+	fmt.Printf("Process %v PID: %v", sidechainBinName, process[0].Pid)
 	if len(process) > 0 {
 		return process[0], nil
 	}
