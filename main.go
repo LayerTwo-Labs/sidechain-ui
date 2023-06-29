@@ -18,8 +18,10 @@ func main() {
 	ConfInit(as)
 
 	// Launch Chain
+	LaunchChain(&as.scd, &as.scs)
 
 	// Start rpc loops
+	StartSidechainStateUpdate(as, mui)
 
 	mui.as.w.SetTitle(cases.Title(language.English).String(appTitle))
 	mui.as.w.ShowAndRun()

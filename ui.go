@@ -85,6 +85,10 @@ func NewMainUi(as *AppState) *MainUI {
 	return mui
 }
 
+func (mui *MainUI) Refresh() {
+	mui.SelectedMainNavigationTab(mui.as.ns.selectedMainNavigationTab)
+}
+
 func (mui *MainUI) SelectedMainNavigationTab(id string) {
 	mui.as.ns.selectedMainNavigationTab = id
 	for i, item := range *mui.as.ns.mainNavigationItems {

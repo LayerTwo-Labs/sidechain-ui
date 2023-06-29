@@ -1,8 +1,12 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
+	"log"
 	"os"
+	"os/exec"
+	"time"
 
 	"github.com/biter777/processex"
 )
@@ -22,11 +26,12 @@ type ChainData struct {
 }
 
 type ChainState struct {
-	ID               string `json:"id"`
-	State            State  `json:"state"`
-	RefreshBMM       bool   `json:"refresh_bmm"`
-	AvailableBalance float64
-	PendingBalance   float64
+	ID               string  `json:"id"`
+	State            State   `json:"state"`
+	RefreshBMM       bool    `json:"refreshbmm"`
+	AvailableBalance float64 `json:"availablebalance"`
+	PendingBalance   float64 `json:"pendingbalance"`
+	Height           int     `json:"height,omitempty"`
 }
 
 type State uint
@@ -37,52 +42,43 @@ const (
 	Running
 )
 
+var (
+	sidechainChainStateUpdate     *time.Ticker
+	quitsidechainChainStateUpdate chan struct{}
+)
+
 func getChainProcess(name string) (*os.Process, error) {
 	process, _, err := processex.FindByName(sidechainBinName)
 	if err == processex.ErrNotFound {
-		fmt.Printf("Process %v not running", sidechainBinName)
 		return nil, err
 	}
 	if err != nil {
-		fmt.Printf("Process %v find error: %v", sidechainBinName, err)
 		return nil, err
 	}
-	fmt.Printf("Process %v PID: %v", sidechainBinName, process[0].Pid)
 	if len(process) > 0 {
 		return process[0], nil
 	}
 	return nil, fmt.Errorf("something went wrong finding process")
 }
 
-// func LaunchChain(chainData ChainData) {
-// 	p, err := getChainProcess(chainData.BinName)
-// 	if p != nil && err == nil {
-// 		// We are already running...
-// 		println(chainData.BinName + " already running...")
-// 		return
-// 	}
-// 	chainDataDir := switchboardDir + "/data/" + chain.ID
-// 	if _, err := os.Stat(chainDataDir); os.IsNotExist(err) {
-// 		os.MkdirAll(chainDataDir, 0o755)
-// 	}
-// 	var regtest string = "0"
-// 	if chain.Regtest {
-// 		regtest = "1"
-// 	}
-// 	args := []string{"-regtest=" + regtest, "-datadir=" + chainDataDir, "-rpcport=" + chain.Port, "-rpcuser=" + chain.RPCUser, "-rpcpassword=" + chain.RPCPass, "-server=1"}
-// 	cmd := exec.Command(switchboardDir+"/"+chain.Bin, args...)
-// 	err := cmd.Start()
-// 	if err != nil {
-// 		log.Fatal(err)
-// 	}
+func LaunchChain(cd *ChainData, cs *ChainState) {
+	p, err := getChainProcess(cd.BinName)
+	if p != nil && err == nil {
+		// We are already running...
+		println(cd.BinName + " already running...")
+		return
+	}
 
-// 	chainState[chain.ID] = ChainState{ID: chain.ID, State: Waiting, RefreshBMM: true, CMD: cmd}
+	args := []string{"-conf=" + cd.ConfDir}
+	cmd := exec.Command(cd.Dir+string(os.PathSeparator)+cd.BinName, args...)
 
-// 	setMainContentUI(selectedChainDataIndex)
-// 	// if err != nil {
-// 	// 	return
-// 	// }
-// }
+	err = cmd.Start()
+	if err != nil {
+		log.Fatal(err)
+	}
+	cs.State = Waiting
+	println(cd.BinName + " Started...")
+}
 
 func StopChain(chainData ChainData) {
 	// _, err := getChainProcess()
@@ -90,4 +86,47 @@ func StopChain(chainData ChainData) {
 	// 	return
 	// }
 	// Shutdown chain gracefully via rpc
+}
+
+func StartSidechainStateUpdate(as *AppState, mui *MainUI) {
+	sidechainChainStateUpdate = time.NewTicker(1 * time.Second)
+	quitsidechainChainStateUpdate = make(chan struct{})
+	go func() {
+		for {
+			select {
+			case <-sidechainChainStateUpdate.C:
+				updateUI := false
+				// getblockcount
+				bcr, err := MakeRpcRequest(&as.scd, "getblockcount", []interface{}{})
+				if err != nil {
+					if as.scs.State != Waiting {
+						as.scs.State = Waiting
+						updateUI = true
+					}
+					fmt.Printf(err.Error())
+				} else {
+					defer bcr.Body.Close()
+					if bcr.StatusCode == 200 {
+						var res RPCGetBlockCountResponse
+						err := json.NewDecoder(bcr.Body).Decode(&res)
+						if err == nil {
+							println(res.Result)
+							if as.scs.Height != res.Result {
+								as.scs.Height = res.Result
+								updateUI = true
+							}
+						}
+					}
+				}
+
+				if updateUI {
+					mui.Refresh()
+				}
+
+			case <-quitsidechainChainStateUpdate:
+				sidechainChainStateUpdate.Stop()
+				return
+			}
+		}
+	}()
 }
