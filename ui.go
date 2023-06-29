@@ -60,6 +60,9 @@ func NewMainUi(as *AppState) *MainUI {
 		} else {
 			b.Importance = widget.LowImportance
 		}
+		if item.Disabled {
+			b.Disable()
+		}
 		mui.mainNavigationContainer.Add(b)
 	}
 	mui.headerContainer.Add(container.NewPadded(mui.mainNavigationContainer))
