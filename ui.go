@@ -1,6 +1,8 @@
 package main
 
 import (
+	"fmt"
+
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/layout"
@@ -69,15 +71,7 @@ func NewMainUi(as *AppState) *MainUI {
 	mui.headerContainer.Add(widget.NewSeparator())
 
 	// Footer
-	version := widget.NewRichTextWithText("Version: 0.1.0")
-	version.Segments[0].(*widget.TextSegment).Style = widget.RichTextStyle{
-		Alignment: fyne.TextAlignLeading,
-		SizeName:  theme.SizeNameCaptionText,
-		ColorName: theme.ColorNameForeground,
-		TextStyle: fyne.TextStyle{Italic: false, Bold: false},
-	}
-
-	mui.footerContainer.Add(version)
+	mui.SetFooter()
 	as.w.SetContent(container.NewStack(NewThemedRectangle(theme.ColorNameMenuBackground), container.NewPadded(container.NewBorder(mui.headerContainer, mui.footerContainer, nil, nil, container.NewPadded(mui.contentContainer)))))
 	mui.SelectedMainNavigationTab("parent_chain")
 	as.w.Resize(fyne.NewSize(800, 600))
@@ -87,6 +81,35 @@ func NewMainUi(as *AppState) *MainUI {
 
 func (mui *MainUI) Refresh() {
 	mui.SelectedMainNavigationTab(mui.as.ns.selectedMainNavigationTab)
+	mui.SetFooter()
+}
+
+func (mui *MainUI) SetFooter() {
+	hbox := container.NewHBox()
+
+	version := widget.NewRichTextWithText("Version: 0.1.0")
+	version.Segments[0].(*widget.TextSegment).Style = widget.RichTextStyle{
+		Alignment: fyne.TextAlignLeading,
+		SizeName:  theme.SizeNameCaptionText,
+		ColorName: theme.ColorNameForeground,
+		TextStyle: fyne.TextStyle{Italic: false, Bold: false},
+	}
+
+	hbox.Add(version)
+	hbox.Add(widget.NewSeparator())
+
+	blockHeight := widget.NewRichTextWithText(fmt.Sprintf("Blocks: %v", mui.as.scs.Height))
+	blockHeight.Segments[0].(*widget.TextSegment).Style = widget.RichTextStyle{
+		Alignment: fyne.TextAlignLeading,
+		SizeName:  theme.SizeNameCaptionText,
+		ColorName: theme.ColorNameForeground,
+		TextStyle: fyne.TextStyle{Italic: false, Bold: false},
+	}
+
+	hbox.Add(blockHeight)
+
+	mui.footerContainer.RemoveAll()
+	mui.footerContainer.Add(hbox)
 }
 
 func (mui *MainUI) SelectedMainNavigationTab(id string) {
@@ -138,7 +161,6 @@ func (mui *MainUI) SetParentChainContent() {
 		appTabs.Append(container.NewTabItemWithIcon(item.Name, mui.as.t.Icon(item.IconName), widget.NewLabel(item.Name)))
 	}
 	contentBody.Add(container.NewPadded(appTabs))
-
 	mui.contentContainer.Add(contentBody)
 }
 

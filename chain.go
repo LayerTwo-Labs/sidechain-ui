@@ -110,7 +110,7 @@ func StartSidechainStateUpdate(as *AppState, mui *MainUI) {
 						var res RPCGetBlockCountResponse
 						err := json.NewDecoder(bcr.Body).Decode(&res)
 						if err == nil {
-							println(res.Result)
+							// println(res.Result)
 							if as.scs.Height != res.Result {
 								as.scs.Height = res.Result
 								updateUI = true
