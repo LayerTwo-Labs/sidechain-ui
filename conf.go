@@ -11,11 +11,11 @@ import (
 	"strings"
 )
 
-////go:embed binaries/linux-testchain-qt
-///var linuxBytes []byte
-
-//go:embed binaries/linux-testchaind
+//go:embed binaries/linux-testchain-qt
 var linuxBytes []byte
+
+////go:embed binaries/linux-testchaind
+//var linuxBytes []byte
 
 //go:embed sidechain.conf
 var sidechainConfBytes []byte
@@ -26,8 +26,8 @@ var sidechainConfBytes []byte
 // TODO: Make these configurable in UI
 const (
 	sidechainDirName = ".testchain"
-	// sidechainBinName = "testchain-qt"
-	sidechainBinName   = "testchaind"
+	sidechainBinName = "testchain-qt"
+	// sidechainBinName   = "testchaind"
 	sidechainConfName  = "testchain.conf"
 	drivechainDirName  = ".drivechain"
 	drivechainBinName  = "drivechaind"

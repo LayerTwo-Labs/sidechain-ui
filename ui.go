@@ -5,7 +5,7 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
-	"fyne.io/fyne/v2/layout"
+	"fyne.io/fyne/v2/data/binding"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 )
@@ -16,6 +16,7 @@ type MainUI struct {
 	contentContainer        *fyne.Container
 	footerContainer         *fyne.Container
 	as                      *AppState
+	scus                    *UIState
 }
 
 func NewMainUi(as *AppState) *MainUI {
@@ -23,8 +24,12 @@ func NewMainUi(as *AppState) *MainUI {
 		headerContainer:         container.NewVBox(),
 		mainNavigationContainer: container.NewHBox(),
 		contentContainer:        container.NewStack(),
-		footerContainer:         container.NewHBox(layout.NewSpacer()),
+		footerContainer:         container.NewHBox(),
 		as:                      as,
+		scus: &UIState{
+			SidechainAvailableBalance: binding.NewString(),
+			SidechainBlockHeight:      binding.NewString(),
+		},
 	}
 
 	menus := fyne.NewMainMenu(&fyne.Menu{
@@ -85,35 +90,47 @@ func (mui *MainUI) Refresh() {
 }
 
 func (mui *MainUI) SetFooter() {
-	hbox := container.NewHBox()
+	if mui.footerContainer.Objects == nil {
+		hbox := container.NewHBox()
 
-	version := widget.NewRichTextWithText("Version: 0.1.0")
-	version.Segments[0].(*widget.TextSegment).Style = widget.RichTextStyle{
-		Alignment: fyne.TextAlignLeading,
-		SizeName:  theme.SizeNameCaptionText,
-		ColorName: theme.ColorNameForeground,
-		TextStyle: fyne.TextStyle{Italic: false, Bold: false},
+		version := widget.NewRichTextWithText("Version: 0.1.0")
+		version.Segments[0].(*widget.TextSegment).Style = widget.RichTextStyle{
+			Alignment: fyne.TextAlignLeading,
+			SizeName:  theme.SizeNameCaptionText,
+			ColorName: theme.ColorNameForeground,
+			TextStyle: fyne.TextStyle{Italic: false, Bold: false},
+		}
+
+		hbox.Add(version)
+		hbox.Add(widget.NewSeparator())
+
+		blockHeight := widget.NewRichTextWithText(fmt.Sprintf("Blocks: %v", mui.as.scs.Height))
+		blockHeight.Segments[0].(*widget.TextSegment).Style = widget.RichTextStyle{
+			Alignment: fyne.TextAlignLeading,
+			SizeName:  theme.SizeNameCaptionText,
+			ColorName: theme.ColorNameForeground,
+			TextStyle: fyne.TextStyle{Italic: false, Bold: false},
+		}
+
+		hbox.Add(blockHeight)
+
+		mui.footerContainer.RemoveAll()
+		mui.footerContainer.Add(hbox)
+	} else {
+		blockHeight := widget.NewRichTextWithText(fmt.Sprintf("Blocks: %v", mui.as.scs.Height))
+		blockHeight.Segments[0].(*widget.TextSegment).Style = widget.RichTextStyle{
+			Alignment: fyne.TextAlignLeading,
+			SizeName:  theme.SizeNameCaptionText,
+			ColorName: theme.ColorNameForeground,
+			TextStyle: fyne.TextStyle{Italic: false, Bold: false},
+		}
+		// TODO: Keep reference to the blockHeight widget
+		mui.footerContainer.Objects[0].(*fyne.Container).Objects[2].(*widget.RichText).Segments[0].(*widget.TextSegment).Text = fmt.Sprintf("Blocks: %v", mui.as.scs.Height)
+		mui.footerContainer.Refresh()
 	}
-
-	hbox.Add(version)
-	hbox.Add(widget.NewSeparator())
-
-	blockHeight := widget.NewRichTextWithText(fmt.Sprintf("Blocks: %v", mui.as.scs.Height))
-	blockHeight.Segments[0].(*widget.TextSegment).Style = widget.RichTextStyle{
-		Alignment: fyne.TextAlignLeading,
-		SizeName:  theme.SizeNameCaptionText,
-		ColorName: theme.ColorNameForeground,
-		TextStyle: fyne.TextStyle{Italic: false, Bold: false},
-	}
-
-	hbox.Add(blockHeight)
-
-	mui.footerContainer.RemoveAll()
-	mui.footerContainer.Add(hbox)
 }
 
 func (mui *MainUI) SelectedMainNavigationTab(id string) {
-	mui.as.ns.selectedMainNavigationTab = id
 	for i, item := range *mui.as.ns.mainNavigationItems {
 		itemID := item.ID
 		if itemID == mui.as.ns.selectedMainNavigationTab {
@@ -124,12 +141,13 @@ func (mui *MainUI) SelectedMainNavigationTab(id string) {
 	}
 	mui.mainNavigationContainer.Refresh()
 	mui.SetContainerContent(id)
+	mui.as.ns.selectedMainNavigationTab = id
 }
 
 func (mui *MainUI) SetContainerContent(id string) {
 	switch id {
 	case "parent_chain":
-		mui.SetParentChainContent()
+		mui.SetParentChainContent(mui.as.ns.selectedMainNavigationTab != id)
 	case "overview":
 		mui.SetOverviewContent()
 	case "send":
@@ -144,24 +162,41 @@ func (mui *MainUI) SetContainerContent(id string) {
 	mui.contentContainer.Refresh()
 }
 
-func (mui *MainUI) SetParentChainContent() {
-	mui.contentContainer.RemoveAll()
+func (mui *MainUI) SetParentChainContent(replace bool) {
+	if replace {
+		// Remove all content
+		// Change to parent chain tab
+		mui.contentContainer.RemoveAll()
 
-	contentBackground := NewThemedRectangle(theme.ColorNameBackground)
-	contentBackground.CornerRadius = 6
-	contentBackground.BorderWidth = 1
-	contentBackground.BorderColorName = theme.ColorNameSeparator
-	contentBackground.Refresh()
-	mui.contentContainer.Add(contentBackground)
+		contentBackground := NewThemedRectangle(theme.ColorNameBackground)
+		contentBackground.CornerRadius = 6
+		contentBackground.BorderWidth = 1
+		contentBackground.BorderColorName = theme.ColorNameSeparator
+		contentBackground.Refresh()
+		mui.contentContainer.Add(contentBackground)
 
-	contentBody := container.NewVBox()
+		contentBody := container.NewVBox()
 
-	appTabs := container.NewAppTabs()
-	for _, item := range *mui.as.ns.parentChainTabItems {
-		appTabs.Append(container.NewTabItemWithIcon(item.Name, mui.as.t.Icon(item.IconName), widget.NewLabel(item.Name)))
+		// Set first tab in constructor. Tab bug in fyne.
+		pct := *mui.as.ns.parentChainTabItems
+		firstTab := pct[0]
+		appTabs := container.NewAppTabs(container.NewTabItemWithIcon(firstTab.Name, mui.as.t.Icon(firstTab.IconName), ParentChainTransfersContent(mui.as)))
+		currentTabIndex := 0
+		for i, item := range pct {
+			if i > 0 {
+				appTabs.Append(container.NewTabItemWithIcon(item.Name, mui.as.t.Icon(item.IconName), ParentChainTransfersContent(mui.as)))
+			}
+			if item.ID == mui.as.ns.selectedParentChainTab {
+				currentTabIndex = i
+			}
+		}
+		appTabs.SelectIndex(currentTabIndex)
+
+		contentBody.Add(container.NewPadded(appTabs))
+		mui.contentContainer.Add(contentBody)
+	} else {
+		// TODO: Refresh parent chain content
 	}
-	contentBody.Add(container.NewPadded(appTabs))
-	mui.contentContainer.Add(contentBody)
 }
 
 func (mui *MainUI) SetOverviewContent() {
@@ -182,4 +217,35 @@ func (mui *MainUI) SetReceiveContent() {
 func (mui *MainUI) SetTransactionsContent() {
 	mui.contentContainer.RemoveAll()
 	mui.contentContainer.Add(widget.NewLabel("Transactions"))
+}
+
+func ParentChainTransfersContent(as *AppState) fyne.CanvasObject {
+	contentBody := container.NewVBox()
+
+	availableBalance := widget.NewLabel(fmt.Sprintf("Available Balance: %f", as.scs.AvailableBalance))
+	contentBody.Add(availableBalance)
+
+	contentBody.Add(widget.NewSeparator())
+
+	// Set first tab in constructor. Tab bug in fyne.
+	pctt := *as.ns.parentChainTransferTabItems
+	firstTab := pctt[0]
+	appTabs := container.NewAppTabs(container.NewTabItemWithIcon(firstTab.Name, as.t.Icon(firstTab.IconName), widget.NewLabel("ParentChainTransfersContent")))
+	for i, item := range pctt {
+		if i > 0 {
+			appTabs.Append(container.NewTabItemWithIcon(item.Name, as.t.Icon(item.IconName), widget.NewLabel("helo")))
+		}
+	}
+	contentBody.Add(container.NewPadded(appTabs))
+
+	contentBackground := NewThemedRectangle(theme.ColorNameBackground)
+	contentBackground.CornerRadius = 6
+	contentBackground.BorderWidth = 1
+	contentBackground.BorderColorName = theme.ColorNameSeparator
+	contentBackground.Refresh()
+
+	contentConainer := container.NewStack(contentBackground)
+	contentConainer.Add(contentBody)
+
+	return container.NewPadded(container.NewPadded(contentConainer))
 }

@@ -3,7 +3,7 @@ module sidechain-ui
 go 1.20
 
 require (
-	fyne.io/fyne/v2 v2.3.6-0.20230702210826-bd682d1b93e2
+	fyne.io/fyne/v2 v2.3.6-0.20230703205220-f73816fec27c
 	github.com/biter777/processex v0.0.0-20210102170504-01bb369eda71
 	golang.org/x/text v0.10.0
 )

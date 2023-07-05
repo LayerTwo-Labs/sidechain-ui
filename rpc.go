@@ -23,6 +23,14 @@ type RPCGetDepositAddressResponse struct {
 	Result string `json:"result"`
 }
 
+type RPCGetBalanceResponse struct {
+	Result float64 `json:"result"`
+}
+
+type RPCGetUnconfirmedBalanceResponse struct {
+	Result float64 `json:"result"`
+}
+
 func MakeRpcRequest(chainData *ChainData, method string, params []interface{}) (*http.Response, error) {
 	auth := chainData.RPCUser + ":" + chainData.RPCPass
 	authBytes := []byte(auth)

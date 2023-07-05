@@ -96,37 +96,61 @@ func StartSidechainStateUpdate(as *AppState, mui *MainUI) {
 			select {
 			case <-sidechainChainStateUpdate.C:
 				updateUI := false
-				// getblockcount
-				bcr, err := MakeRpcRequest(&as.scd, "getblockcount", []interface{}{})
-				if err != nil {
-					if as.scs.State != Waiting {
-						as.scs.State = Waiting
-						updateUI = true
-					}
-					fmt.Printf(err.Error())
-				} else {
-					defer bcr.Body.Close()
-					if bcr.StatusCode == 200 {
-						var res RPCGetBlockCountResponse
-						err := json.NewDecoder(bcr.Body).Decode(&res)
-						if err == nil {
-							// println(res.Result)
-							if as.scs.Height != res.Result {
-								as.scs.Height = res.Result
-								updateUI = true
-							}
-						}
-					}
+				if GetBlockHeight(&as.scd, &as.scs) && !updateUI {
+					updateUI = true
 				}
-
+				if GetBalance(&as.scd, &as.scs) && !updateUI {
+					updateUI = true
+				}
 				if updateUI {
 					mui.Refresh()
 				}
-
 			case <-quitsidechainChainStateUpdate:
 				sidechainChainStateUpdate.Stop()
 				return
 			}
 		}
 	}()
+}
+
+func GetBlockHeight(cd *ChainData, cs *ChainState) bool {
+	currentHeight := cs.Height
+	bcr, err := MakeRpcRequest(cd, "getblockcount", []interface{}{})
+	if err != nil {
+		println(err.Error())
+	} else {
+		defer bcr.Body.Close()
+		if bcr.StatusCode == 200 {
+			var res RPCGetBlockCountResponse
+			err := json.NewDecoder(bcr.Body).Decode(&res)
+			if err == nil {
+				cs.Height = res.Result
+				if currentHeight != cs.Height {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
+func GetBalance(cd *ChainData, cs *ChainState) bool {
+	currentBalance := cs.AvailableBalance
+	bcr, err := MakeRpcRequest(cd, "getbalance", []interface{}{})
+	if err != nil {
+		println(err.Error())
+	} else {
+		defer bcr.Body.Close()
+		if bcr.StatusCode == 200 {
+			var res RPCGetBalanceResponse
+			err := json.NewDecoder(bcr.Body).Decode(&res)
+			if err == nil {
+				cs.AvailableBalance = res.Result
+				if currentBalance != cs.AvailableBalance {
+					return true
+				}
+			}
+		}
+	}
+	return false
 }

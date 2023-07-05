@@ -3,6 +3,7 @@ package main
 import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
+	"fyne.io/fyne/v2/data/binding"
 )
 
 type TabItemData struct {
@@ -13,9 +14,12 @@ type TabItemData struct {
 }
 
 type NavigationState struct {
-	mainNavigationItems       *[]TabItemData
-	parentChainTabItems       *[]TabItemData
-	selectedMainNavigationTab string
+	mainNavigationItems            *[]TabItemData
+	parentChainTabItems            *[]TabItemData
+	parentChainTransferTabItems    *[]TabItemData
+	selectedMainNavigationTab      string
+	selectedParentChainTab         string
+	selectedParentChainTransferTab string
 }
 
 type AppState struct {
@@ -27,6 +31,11 @@ type AppState struct {
 	scd ChainData
 	pcs ChainState
 	scs ChainState
+}
+
+type UIState struct {
+	SidechainAvailableBalance binding.String
+	SidechainBlockHeight      binding.String
 }
 
 func NewAppState(id string, title string) *AppState {
@@ -58,9 +67,17 @@ func NewNavigationState() *NavigationState {
 		{ID: "bmm", Name: "BMM", IconName: MineIcon, Disabled: false},
 	}
 
+	parentChainTransferTabItems := []TabItemData{
+		{ID: "withdraw_from_sidechain", Name: "Withdraw from Sidechain", IconName: WithdrawIcon, Disabled: false},
+		{ID: "deposit_to_sidechain", Name: "Depsoit to Sidechain", IconName: DepositIcon, Disabled: false},
+	}
+
 	return &NavigationState{
-		mainNavigationItems:       &mainNavigationItems,
-		parentChainTabItems:       &parentChainTabItems,
-		selectedMainNavigationTab: "parent_chain",
+		mainNavigationItems:            &mainNavigationItems,
+		parentChainTabItems:            &parentChainTabItems,
+		parentChainTransferTabItems:    &parentChainTransferTabItems,
+		selectedMainNavigationTab:      "",
+		selectedParentChainTab:         "transfer",
+		selectedParentChainTransferTab: "withdraw_from_sidechain",
 	}
 }
