@@ -12,17 +12,18 @@ import (
 )
 
 type ChainData struct {
-	ParentChain      bool   `json:"parentchain,omitempty"`
-	BinName          string `json:"binname,omitempty"`
-	Regtest          int    `json:"regtest"`
-	Port             int    `json:"rpcport"`
-	RPCUser          string `json:"rpcuser"`
-	RPCPass          string `json:"rpcpassword"`
-	Dir              string `json:"dir,omitempty"`
-	ConfDir          string `json:"confdir,omitempty"`
-	DataDir          string `json:"datadir,omitempty"`
-	Slot             *int   `json:"slot,omitempty"`
-	MinerBreakForBMM *int   `json:"minerbreakforbmm,omitempty"`
+	ParentChain      bool    `json:"parentchain,omitempty"`
+	BinName          string  `json:"binname,omitempty"`
+	Regtest          int     `json:"regtest"`
+	Port             int     `json:"rpcport"`
+	RPCUser          string  `json:"rpcuser"`
+	RPCPass          string  `json:"rpcpassword"`
+	Dir              string  `json:"dir,omitempty"`
+	ConfDir          string  `json:"confdir,omitempty"`
+	DataDir          string  `json:"datadir,omitempty"`
+	Slot             *int    `json:"slot,omitempty"`
+	MinerBreakForBMM *int    `json:"minerbreakforbmm,omitempty"`
+	MinimumFee       float64 `json:"minimumfee,omitempty"`
 }
 
 type ChainState struct {
@@ -32,6 +33,23 @@ type ChainState struct {
 	AvailableBalance float64 `json:"availablebalance"`
 	PendingBalance   float64 `json:"pendingbalance"`
 	Height           int     `json:"height,omitempty"`
+	Slot             *int    `json:"slot,omitempty"`
+}
+
+func (cs *ChainState) FormatedAvailableBalance() string {
+	if cs.Slot != nil {
+		return fmt.Sprintf("%.8f SC%d", cs.AvailableBalance, *cs.Slot)
+	} else {
+		return fmt.Sprintf("%.8f", cs.AvailableBalance)
+	}
+}
+
+func (cs *ChainState) FormatedPendingBalance() string {
+	if cs.Slot != nil {
+		return fmt.Sprintf("%.8f SC%d", cs.PendingBalance, *cs.Slot)
+	} else {
+		return fmt.Sprintf("%.8f", cs.PendingBalance)
+	}
 }
 
 type State uint

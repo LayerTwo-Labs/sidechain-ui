@@ -23,7 +23,6 @@ func main() {
 	// Start rpc loops
 	StartSidechainStateUpdate(as, mui)
 
-
 	mui.as.w.SetTitle(cases.Title(language.English).String(appTitle))
 	mui.as.w.ShowAndRun()
 }

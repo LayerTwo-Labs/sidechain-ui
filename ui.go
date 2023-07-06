@@ -1,11 +1,13 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/data/binding"
+	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 )
@@ -16,7 +18,11 @@ type MainUI struct {
 	contentContainer        *fyne.Container
 	footerContainer         *fyne.Container
 	as                      *AppState
-	scus                    *UIState
+}
+
+type ContentBodyUI interface {
+	Set(mui *MainUI, c *fyne.Container)     // Set the content body by replacing the content container
+	Refresh(mui *MainUI, c *fyne.Container) // Refresh the content body updating only changed values
 }
 
 func NewMainUi(as *AppState) *MainUI {
@@ -26,10 +32,6 @@ func NewMainUi(as *AppState) *MainUI {
 		contentContainer:        container.NewStack(),
 		footerContainer:         container.NewHBox(),
 		as:                      as,
-		scus: &UIState{
-			SidechainAvailableBalance: binding.NewString(),
-			SidechainBlockHeight:      binding.NewString(),
-		},
 	}
 
 	menus := fyne.NewMainMenu(&fyne.Menu{
@@ -56,11 +58,10 @@ func NewMainUi(as *AppState) *MainUI {
 	as.w.SetMainMenu(menus)
 
 	// Setup main tab bar
-	for _, item := range *as.ns.mainNavigationItems {
-		itemID := item.ID
+	for i, item := range *as.ns.mainNavigationItems {
+		index := i
 		b := widget.NewButtonWithIcon(item.Name, mui.as.t.Icon(item.IconName), func() {
-			mui.SelectedMainNavigationTab(itemID)
-			// setSelectedMainTab(itemID) TODO://
+			mui.SelectedMainNavigationTab(index)
 		})
 		if item.ID == "parent_chain" {
 			b.Importance = widget.MediumImportance
@@ -78,14 +79,20 @@ func NewMainUi(as *AppState) *MainUI {
 	// Footer
 	mui.SetFooter()
 	as.w.SetContent(container.NewStack(NewThemedRectangle(theme.ColorNameMenuBackground), container.NewPadded(container.NewBorder(mui.headerContainer, mui.footerContainer, nil, nil, container.NewPadded(mui.contentContainer)))))
-	mui.SelectedMainNavigationTab("parent_chain")
+	mui.SelectedMainNavigationTab(0)
 	as.w.Resize(fyne.NewSize(800, 600))
 	as.w.SetPadded(false)
 	return mui
 }
 
 func (mui *MainUI) Refresh() {
-	mui.SelectedMainNavigationTab(mui.as.ns.selectedMainNavigationTab)
+	for i, item := range *mui.as.ns.mainNavigationItems {
+		if i == mui.as.ns.selectedTabItemIndex {
+			item.ContentBody.Refresh(mui, mui.contentContainer)
+			println("Refreshed: ", item.Name)
+			break
+		}
+	}
 	mui.SetFooter()
 }
 
@@ -130,112 +137,147 @@ func (mui *MainUI) SetFooter() {
 	}
 }
 
-func (mui *MainUI) SelectedMainNavigationTab(id string) {
+func (mui *MainUI) SelectedMainNavigationTab(index int) {
+	if index == mui.as.ns.selectedTabItemIndex {
+		return
+	}
+	mui.as.ns.selectedTabItemIndex = index
 	for i, item := range *mui.as.ns.mainNavigationItems {
-		itemID := item.ID
-		if itemID == mui.as.ns.selectedMainNavigationTab {
+		if i == mui.as.ns.selectedTabItemIndex {
 			mui.mainNavigationContainer.Objects[i].(*widget.Button).Importance = widget.MediumImportance
+			item.ContentBody.Set(mui, mui.contentContainer)
 		} else {
 			mui.mainNavigationContainer.Objects[i].(*widget.Button).Importance = widget.LowImportance
 		}
 	}
 	mui.mainNavigationContainer.Refresh()
-	mui.SetContainerContent(id)
-	mui.as.ns.selectedMainNavigationTab = id
 }
 
-func (mui *MainUI) SetContainerContent(id string) {
-	switch id {
-	case "parent_chain":
-		mui.SetParentChainContent(mui.as.ns.selectedMainNavigationTab != id)
-	case "overview":
-		mui.SetOverviewContent()
-	case "send":
-		mui.SetSendContent()
-	case "receive":
-		mui.SetReceiveContent()
-	case "transactions":
-		mui.SetTransactionsContent()
-	default:
-		break
+// Build Inner UI Here
+type ParentChainContentBodyUI struct {
+	TabItems         *[]TabItemData
+	SelectedTabIndex int
+}
+
+func NewParentChainContentBodyUI() *ParentChainContentBodyUI {
+	tabItems := []TabItemData{
+		{ID: "transfer", Name: "Transfer", IconName: UpDownIcon, Disabled: false, ContentBody: NewParentChainTransfersContentUI()},
+		{ID: "withdraw_explorer", Name: "Withdraw Explorer", IconName: SearchIcon, Disabled: false},
+		{ID: "bmm", Name: "BMM", IconName: MineIcon, Disabled: false},
 	}
-	mui.contentContainer.Refresh()
-}
-
-func (mui *MainUI) SetParentChainContent(replace bool) {
-	if replace {
-		// Remove all content
-		// Change to parent chain tab
-		mui.contentContainer.RemoveAll()
-
-		contentBackground := NewThemedRectangle(theme.ColorNameBackground)
-		contentBackground.CornerRadius = 6
-		contentBackground.BorderWidth = 1
-		contentBackground.BorderColorName = theme.ColorNameSeparator
-		contentBackground.Refresh()
-		mui.contentContainer.Add(contentBackground)
-
-		contentBody := container.NewVBox()
-
-		// Set first tab in constructor. Tab bug in fyne.
-		pct := *mui.as.ns.parentChainTabItems
-		firstTab := pct[0]
-		appTabs := container.NewAppTabs(container.NewTabItemWithIcon(firstTab.Name, mui.as.t.Icon(firstTab.IconName), ParentChainTransfersContent(mui.as)))
-		currentTabIndex := 0
-		for i, item := range pct {
-			if i > 0 {
-				appTabs.Append(container.NewTabItemWithIcon(item.Name, mui.as.t.Icon(item.IconName), ParentChainTransfersContent(mui.as)))
-			}
-			if item.ID == mui.as.ns.selectedParentChainTab {
-				currentTabIndex = i
-			}
-		}
-		appTabs.SelectIndex(currentTabIndex)
-
-		contentBody.Add(container.NewPadded(appTabs))
-		mui.contentContainer.Add(contentBody)
-	} else {
-		// TODO: Refresh parent chain content
+	return &ParentChainContentBodyUI{
+		TabItems:         &tabItems,
+		SelectedTabIndex: 0,
 	}
 }
 
-func (mui *MainUI) SetOverviewContent() {
-	mui.contentContainer.RemoveAll()
-	mui.contentContainer.Add(widget.NewLabel("Overview"))
-}
+func (pc *ParentChainContentBodyUI) Set(mui *MainUI, c *fyne.Container) {
+	// Remove all content
+	// Change to parent chain tab
+	c.RemoveAll()
 
-func (mui *MainUI) SetSendContent() {
-	mui.contentContainer.RemoveAll()
-	mui.contentContainer.Add(widget.NewLabel("Send"))
-}
+	contentBackground := NewThemedRectangle(theme.ColorNameBackground)
+	contentBackground.CornerRadius = 6
+	contentBackground.BorderWidth = 1
+	contentBackground.BorderColorName = theme.ColorNameSeparator
+	contentBackground.Refresh()
+	c.Add(contentBackground)
 
-func (mui *MainUI) SetReceiveContent() {
-	mui.contentContainer.RemoveAll()
-	mui.contentContainer.Add(widget.NewLabel("Receive"))
-}
-
-func (mui *MainUI) SetTransactionsContent() {
-	mui.contentContainer.RemoveAll()
-	mui.contentContainer.Add(widget.NewLabel("Transactions"))
-}
-
-func ParentChainTransfersContent(as *AppState) fyne.CanvasObject {
 	contentBody := container.NewVBox()
 
-	availableBalance := widget.NewLabel(fmt.Sprintf("Available Balance: %f", as.scs.AvailableBalance))
-	contentBody.Add(availableBalance)
+	// Set first tab in constructor. Tab bug in fyne.
+	pct := *pc.TabItems
+	firstTab := pct[0]
+	appTabs := container.NewAppTabs(container.NewTabItemWithIcon(firstTab.Name, mui.as.t.Icon(firstTab.IconName), container.NewVBox()))
+	currentTabIndex := 0
+	for i, item := range pct {
+		if i > 0 {
+			appTabs.Append(container.NewTabItemWithIcon(item.Name, mui.as.t.Icon(item.IconName), container.NewVBox()))
+		}
+		if i == pc.SelectedTabIndex {
+			currentTabIndex = i
+		}
+	}
+
+	appTabs.OnSelected = func(item *container.TabItem) {
+	}
+
+	appTabs.SelectIndex(currentTabIndex)
+	appTabs.Selected().Content = container.NewVBox()
+	for i, item := range pct {
+		if i == currentTabIndex {
+			item.ContentBody.Set(mui, appTabs.Selected().Content.(*fyne.Container))
+		}
+	}
+
+	contentBody.Add(container.NewPadded(appTabs))
+	c.Add(contentBody)
+}
+
+func (pc *ParentChainContentBodyUI) Refresh(mui *MainUI, c *fyne.Container) {
+	// Refresh the content body updating only changed values
+	for i, item := range *pc.TabItems {
+		if i == pc.SelectedTabIndex {
+			item.ContentBody.Refresh(mui, c)
+		}
+	}
+}
+
+type ParentChainTransfersContentUI struct {
+	TabItems         *[]TabItemData
+	SelectedTabIndex int
+	AvailableBalance *widget.Label
+}
+
+func NewParentChainTransfersContentUI() *ParentChainTransfersContentUI {
+	tabItems := []TabItemData{
+		{ID: "withdraw_from_sidechain", Name: "Withdraw from Sidechain", IconName: WithdrawIcon, Disabled: false, ContentBody: NewParentChainTransfersWithdrawContentUI()},
+		{ID: "deposit_to_sidechain", Name: "Depsoit to Sidechain", IconName: DepositIcon, Disabled: false},
+	}
+	return &ParentChainTransfersContentUI{
+		TabItems:         &tabItems,
+		SelectedTabIndex: 0,
+	}
+}
+
+func (pct *ParentChainTransfersContentUI) Set(mui *MainUI, c *fyne.Container) {
+	c.RemoveAll()
+
+	contentBody := container.NewVBox()
+
+	contentBody.Add(&layout.Spacer{FixHorizontal: false, FixVertical: true})
+
+	pct.AvailableBalance = widget.NewLabel(fmt.Sprintf("Your sidechain balance: %s", as.scs.FormatedAvailableBalance()))
+	// pct.AvailableBalance.TextStyle.Bold = true
+	contentBody.Add(container.NewPadded(pct.AvailableBalance))
 
 	contentBody.Add(widget.NewSeparator())
 
 	// Set first tab in constructor. Tab bug in fyne.
-	pctt := *as.ns.parentChainTransferTabItems
-	firstTab := pctt[0]
-	appTabs := container.NewAppTabs(container.NewTabItemWithIcon(firstTab.Name, as.t.Icon(firstTab.IconName), widget.NewLabel("ParentChainTransfersContent")))
-	for i, item := range pctt {
+	ti := *pct.TabItems
+	firstTab := ti[0]
+	appTabs := container.NewAppTabs(container.NewTabItemWithIcon(firstTab.Name, as.t.Icon(firstTab.IconName), container.NewVBox()))
+	currentTabIndex := 0
+	for i, item := range ti {
 		if i > 0 {
-			appTabs.Append(container.NewTabItemWithIcon(item.Name, as.t.Icon(item.IconName), widget.NewLabel("helo")))
+			appTabs.Append(container.NewTabItemWithIcon(item.Name, as.t.Icon(item.IconName), container.NewVBox()))
+		}
+		if i == pct.SelectedTabIndex {
+			currentTabIndex = i
 		}
 	}
+
+	appTabs.OnSelected = func(item *container.TabItem) {
+	}
+
+	appTabs.SelectIndex(currentTabIndex)
+	appTabs.Selected().Content = container.NewVBox()
+	for i, item := range ti {
+		if i == currentTabIndex {
+			item.ContentBody.Set(mui, appTabs.Selected().Content.(*fyne.Container))
+		}
+	}
+
 	contentBody.Add(container.NewPadded(appTabs))
 
 	contentBackground := NewThemedRectangle(theme.ColorNameBackground)
@@ -247,5 +289,82 @@ func ParentChainTransfersContent(as *AppState) fyne.CanvasObject {
 	contentConainer := container.NewStack(contentBackground)
 	contentConainer.Add(contentBody)
 
-	return container.NewPadded(container.NewPadded(contentConainer))
+	c.Add(container.NewPadded(container.NewPadded(contentConainer)))
+	c.Refresh()
+}
+
+func (pct *ParentChainTransfersContentUI) Refresh(mui *MainUI, c *fyne.Container) {
+	pct.AvailableBalance.Text = fmt.Sprintf("Your sidechain balance: %s", as.scs.FormatedAvailableBalance())
+	pct.AvailableBalance.Refresh()
+	for i, item := range *pct.TabItems {
+		if i == pct.SelectedTabIndex {
+			item.ContentBody.Refresh(mui, c)
+		}
+	}
+}
+
+type ParentChainTransfersWithdrawContentUI struct {
+	WithdrawForm *widget.Form
+	Address      binding.String
+	Amount       binding.String
+	MainchainFee binding.String
+	SidechainFee binding.String
+}
+
+func NewParentChainTransfersWithdrawContentUI() *ParentChainTransfersWithdrawContentUI {
+	return &ParentChainTransfersWithdrawContentUI{
+		Address:      binding.NewString(),
+		Amount:       binding.NewString(),
+		MainchainFee: binding.NewString(),
+		SidechainFee: binding.NewString(),
+	}
+}
+
+func (pctw *ParentChainTransfersWithdrawContentUI) Set(mui *MainUI, c *fyne.Container) {
+	c.RemoveAll()
+
+	contentBody := container.NewVBox()
+	contentBody.Add(&layout.Spacer{FixHorizontal: false, FixVertical: true})
+	contentBody.Add(&layout.Spacer{FixHorizontal: false, FixVertical: true})
+
+	pctw.WithdrawForm = widget.NewForm()
+	pctw.WithdrawForm.SubmitText = "Withdraw"
+	pctw.WithdrawForm.OnSubmit = func() {
+		println("Withdraw form submitted")
+	}
+
+	address := widget.NewEntryWithData(pctw.Address)
+	address.SetPlaceHolder("Mainchain bitcoin address")
+	address.Validator = func(s string) error {
+		if len(s) == 0 {
+			return errors.New("address is required")
+		}
+		return nil
+	}
+	pctw.WithdrawForm.Append("Destination", address)
+
+	amount := widget.NewEntryWithData(pctw.Amount)
+	amount.SetPlaceHolder(fmt.Sprintf("0.00000000 SC%d", mui.as.scd.Slot))
+	pctw.WithdrawForm.Append("Amount", amount)
+
+	mcf := widget.NewEntryWithData(pctw.MainchainFee)
+	mcf.SetPlaceHolder(fmt.Sprintf("0.00000000 SC%d", mui.as.scd.Slot))
+	pctw.WithdrawForm.Append("Mainchain Fee", mcf)
+
+	scf := widget.NewEntryWithData(pctw.SidechainFee)
+	scf.SetPlaceHolder(fmt.Sprintf("0.00000000 SC%d", mui.as.scd.Slot))
+	pctw.WithdrawForm.Append("Sidechain Fee", scf)
+
+	contentBody.Add(pctw.WithdrawForm)
+
+	c.Add(container.NewPadded(container.NewPadded(contentBody)))
+	c.Refresh()
+}
+
+func (pctw *ParentChainTransfersWithdrawContentUI) Refresh(mui *MainUI, c *fyne.Container) {
+	pctw.WithdrawForm.Items[1].HintText = fmt.Sprintf("Max amount: %s", mui.as.scs.FormatedAvailableBalance())
+	pctw.WithdrawForm.Items[2].HintText = fmt.Sprintf("Minimum fee: %.8f SC%d", mui.as.pcd.MinimumFee, *mui.as.scd.Slot)
+	pctw.WithdrawForm.Items[3].HintText = fmt.Sprintf("Minimum fee: %.8f SC%d", mui.as.scd.MinimumFee, *mui.as.scd.Slot)
+
+	pctw.WithdrawForm.Refresh()
 }

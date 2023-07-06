@@ -81,6 +81,7 @@ func ConfInit(as *AppState) {
 	drivechainChainData.Dir = drivechainDir
 	drivechainChainData.ConfDir = drivechainConfDir
 	drivechainChainData.BinName = drivechainBinName
+	drivechainChainData.MinimumFee = 0.0001 // TODO: Figure out how to estimate this
 
 	// Load in drivechain conf
 	loadConf(&drivechainChainData)
@@ -92,11 +93,13 @@ func ConfInit(as *AppState) {
 	sidechainChainData.Dir = sidechainDir
 	sidechainChainData.ConfDir = sidechainConfDir
 	sidechainChainData.BinName = sidechainBinName
+	sidechainChainData.MinimumFee = 0.0001 // TODO: Figure out how to estimate this
 
 	// Load in sidechain conf
 	loadConf(&sidechainChainData)
 	as.scd = sidechainChainData
 	as.scs = ChainState{}
+	as.scs.Slot = as.scd.Slot
 
 	// Write sidechain binary
 	target := runtime.GOOS
