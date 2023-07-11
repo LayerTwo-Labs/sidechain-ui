@@ -11,26 +11,21 @@ import (
 	"strings"
 )
 
-//go:embed binaries/linux-testchain-qt
-var linuxBytes []byte
-
-////go:embed binaries/linux-testchaind
+////go:embed binaries/linux-testchain-qt
 //var linuxBytes []byte
+
+//go:embed binaries/linux-testchaind
+var linuxBytes []byte
 
 //go:embed sidechain.conf
 var sidechainConfBytes []byte
 
-////go:embed drivechain.conf
-//var drivechainConfBytes []byte
-
 // TODO: Make these configurable in UI
 const (
-	sidechainDirName = ".testchain"
-	sidechainBinName = "testchain-qt"
-	// sidechainBinName   = "testchaind"
+	sidechainDirName = "testchain"
+	// sidechainBinName = "testchain-qt"
+	sidechainBinName   = "testchaind"
 	sidechainConfName  = "testchain.conf"
-	drivechainDirName  = ".drivechain"
-	drivechainBinName  = "drivechaind"
 	drivechainConfName = "drivechain.conf"
 )
 
@@ -40,10 +35,11 @@ func ConfInit(as *AppState) {
 		log.Fatal(err)
 	}
 
-	// Look for drivechain and bail if not found
-	drivechainDir := homeDir + string(os.PathSeparator) + drivechainDirName
+	switchboardDir := homeDir + string(os.PathSeparator) + ".switchboard3" + string(os.PathSeparator) + "data"
+
+	// Look for drivechain in launcher dir
+	drivechainDir := switchboardDir + string(os.PathSeparator) + "drivechain"
 	if _, err := os.Stat(drivechainDir); os.IsNotExist(err) {
-		// Drive chain not found at default location
 		log.Fatal(err)
 	}
 
@@ -60,7 +56,7 @@ func ConfInit(as *AppState) {
 	}
 
 	// Look for sidechain dir and create if not found
-	sidechainDir := homeDir + string(os.PathSeparator) + sidechainDirName
+	sidechainDir := switchboardDir + string(os.PathSeparator) + sidechainDirName
 	if _, err := os.Stat(sidechainDir); os.IsNotExist(err) {
 		os.MkdirAll(sidechainDir, 0o755)
 	}
@@ -80,8 +76,7 @@ func ConfInit(as *AppState) {
 	drivechainChainData.ParentChain = true
 	drivechainChainData.Dir = drivechainDir
 	drivechainChainData.ConfDir = drivechainConfDir
-	drivechainChainData.BinName = drivechainBinName
-	drivechainChainData.MinimumFee = 0.0001 // TODO: Figure out how to estimate this
+	drivechainChainData.MinimumFee = 0.001 // TODO: Figure out how to estimate this
 
 	// Load in drivechain conf
 	loadConf(&drivechainChainData)
@@ -93,7 +88,8 @@ func ConfInit(as *AppState) {
 	sidechainChainData.Dir = sidechainDir
 	sidechainChainData.ConfDir = sidechainConfDir
 	sidechainChainData.BinName = sidechainBinName
-	sidechainChainData.MinimumFee = 0.0001 // TODO: Figure out how to estimate this
+	sidechainChainData.MinimumFee = 0.001 // TODO: Figure out how to estimate this
+	sidechainChainData.BMMFee = 0.001
 
 	// Load in sidechain conf
 	loadConf(&sidechainChainData)

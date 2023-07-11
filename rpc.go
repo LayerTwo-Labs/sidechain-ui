@@ -35,7 +35,7 @@ func MakeRpcRequest(chainData *ChainData, method string, params []interface{}) (
 	auth := chainData.RPCUser + ":" + chainData.RPCPass
 	authBytes := []byte(auth)
 	authEncoded := base64.StdEncoding.EncodeToString(authBytes)
-	rpcRequest := RPCRequest{JSONRpc: "2.0", ID: "switchboard", Method: method, Params: params}
+	rpcRequest := RPCRequest{JSONRpc: "2.0", ID: "", Method: method, Params: params}
 	body, err := json.Marshal(rpcRequest)
 	if err != nil {
 		return nil, err
@@ -48,4 +48,12 @@ func MakeRpcRequest(chainData *ChainData, method string, params []interface{}) (
 	req.Header.Add("Authorization", "Basic "+authEncoded)
 	req.Header.Add("content-type", "application/json")
 	return client.Do(req)
+}
+
+func PrintRPCErrorResponse(r *http.Response) {
+	println("RPC Error: " + r.Status)
+	println("Response:")
+	buf := new(bytes.Buffer)
+	buf.ReadFrom(r.Body)
+	println(buf.String())
 }

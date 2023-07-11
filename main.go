@@ -23,6 +23,16 @@ func main() {
 	// Start rpc loops
 	StartSidechainStateUpdate(as, mui)
 
+	// Intercept close so that we can shutdown
+	// properly
+	mui.as.w.SetCloseIntercept(func() {
+		err := StopChain(&as.scd, &as.scs)
+		if err != nil {
+			println(err.Error())
+		}
+		mui.as.w.Close()
+	})
+
 	mui.as.w.SetTitle(cases.Title(language.English).String(appTitle))
 	mui.as.w.ShowAndRun()
 }

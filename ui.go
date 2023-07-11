@@ -247,7 +247,7 @@ func (pct *ParentChainTransfersContentUI) Set(mui *MainUI, c *fyne.Container) {
 
 	contentBody.Add(&layout.Spacer{FixHorizontal: false, FixVertical: true})
 
-	pct.AvailableBalance = widget.NewLabel(fmt.Sprintf("Your sidechain balance: %s", as.scs.FormatedAvailableBalance()))
+	pct.AvailableBalance = widget.NewLabel(fmt.Sprintf("Your sidechain balance: %s", as.scs.FormatedAvailableBalance(true)))
 	// pct.AvailableBalance.TextStyle.Bold = true
 	contentBody.Add(container.NewPadded(pct.AvailableBalance))
 
@@ -294,7 +294,7 @@ func (pct *ParentChainTransfersContentUI) Set(mui *MainUI, c *fyne.Container) {
 }
 
 func (pct *ParentChainTransfersContentUI) Refresh(mui *MainUI, c *fyne.Container) {
-	pct.AvailableBalance.Text = fmt.Sprintf("Your sidechain balance: %s", as.scs.FormatedAvailableBalance())
+	pct.AvailableBalance.Text = fmt.Sprintf("Your sidechain balance: %s", as.scs.FormatedAvailableBalance(true))
 	pct.AvailableBalance.Refresh()
 	for i, item := range *pct.TabItems {
 		if i == pct.SelectedTabIndex {
@@ -330,29 +330,61 @@ func (pctw *ParentChainTransfersWithdrawContentUI) Set(mui *MainUI, c *fyne.Cont
 	pctw.WithdrawForm = widget.NewForm()
 	pctw.WithdrawForm.SubmitText = "Withdraw"
 	pctw.WithdrawForm.OnSubmit = func() {
-		println("Withdraw form submitted")
+		sca, err := GetSidechainDepositAddress(&mui.as.scd)
+		if err != nil {
+			println(err.Error())
+			return
+		}
+		adr, err := pctw.Address.Get()
+		if err != nil {
+			println(err.Error())
+			return
+		}
+		err = WithdrawFromSidechain(&mui.as.scd, &mui.as.pcd, adr, *sca, 1.0, mui.as.scd.MinimumFee, mui.as.pcd.MinimumFee)
+		if err != nil {
+			println(err.Error())
+		}
 	}
 
 	address := widget.NewEntryWithData(pctw.Address)
 	address.SetPlaceHolder("Mainchain bitcoin address")
 	address.Validator = func(s string) error {
+		// TODO: validate value
 		if len(s) == 0 {
 			return errors.New("address is required")
 		}
 		return nil
 	}
-	pctw.WithdrawForm.Append("Destination", address)
+
+	getAddrBtn := widget.NewButton("Get Address", func() {
+		a, err := GetDrivechainDepositAddress(&mui.as.pcd)
+		if err != nil {
+			println(err.Error())
+		} else if a != nil {
+			pctw.Address.Set(*a)
+			address.Refresh()
+		}
+	})
+	addri := widget.NewFormItem("Destination", container.NewBorder(nil, nil, nil, getAddrBtn, address))
+	pctw.WithdrawForm.AppendItem(addri)
 
 	amount := widget.NewEntryWithData(pctw.Amount)
-	amount.SetPlaceHolder(fmt.Sprintf("0.00000000 SC%d", mui.as.scd.Slot))
+	amount.Validator = func(s string) error {
+		// TODO: validate value
+		if len(s) == 0 {
+			return errors.New("amount is required")
+		}
+		return nil
+	}
+	amount.SetPlaceHolder("0.00000000")
 	pctw.WithdrawForm.Append("Amount", amount)
 
 	mcf := widget.NewEntryWithData(pctw.MainchainFee)
-	mcf.SetPlaceHolder(fmt.Sprintf("0.00000000 SC%d", mui.as.scd.Slot))
+	mcf.SetPlaceHolder("0.00000000")
 	pctw.WithdrawForm.Append("Mainchain Fee", mcf)
 
 	scf := widget.NewEntryWithData(pctw.SidechainFee)
-	scf.SetPlaceHolder(fmt.Sprintf("0.00000000 SC%d", mui.as.scd.Slot))
+	scf.SetPlaceHolder("0.00000000")
 	pctw.WithdrawForm.Append("Sidechain Fee", scf)
 
 	contentBody.Add(pctw.WithdrawForm)
@@ -362,9 +394,13 @@ func (pctw *ParentChainTransfersWithdrawContentUI) Set(mui *MainUI, c *fyne.Cont
 }
 
 func (pctw *ParentChainTransfersWithdrawContentUI) Refresh(mui *MainUI, c *fyne.Container) {
-	pctw.WithdrawForm.Items[1].HintText = fmt.Sprintf("Max amount: %s", mui.as.scs.FormatedAvailableBalance())
-	pctw.WithdrawForm.Items[2].HintText = fmt.Sprintf("Minimum fee: %.8f SC%d", mui.as.pcd.MinimumFee, *mui.as.scd.Slot)
-	pctw.WithdrawForm.Items[3].HintText = fmt.Sprintf("Minimum fee: %.8f SC%d", mui.as.scd.MinimumFee, *mui.as.scd.Slot)
+	// TODO: Autoset the drivechain deposit address?
+	pctw.MainchainFee.Set(fmt.Sprintf("%.8f", mui.as.pcd.MinimumFee))
+	pctw.SidechainFee.Set(fmt.Sprintf("%.8f", mui.as.scd.MinimumFee))
+
+	pctw.WithdrawForm.Items[1].HintText = fmt.Sprintf("Max amount: %s", mui.as.scs.FormatedAvailableBalance(false))
+	pctw.WithdrawForm.Items[2].HintText = fmt.Sprintf("Minimum fee: %.8f", mui.as.pcd.MinimumFee)
+	pctw.WithdrawForm.Items[3].HintText = fmt.Sprintf("Minimum fee: %.8f", mui.as.scd.MinimumFee)
 
 	pctw.WithdrawForm.Refresh()
 }

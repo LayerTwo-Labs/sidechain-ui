@@ -24,6 +24,7 @@ type ChainData struct {
 	Slot             *int    `json:"slot,omitempty"`
 	MinerBreakForBMM *int    `json:"minerbreakforbmm,omitempty"`
 	MinimumFee       float64 `json:"minimumfee,omitempty"`
+	BMMFee           float64 `json:"bmmfee,omitempty"`
 }
 
 type ChainState struct {
@@ -36,16 +37,16 @@ type ChainState struct {
 	Slot             *int    `json:"slot,omitempty"`
 }
 
-func (cs *ChainState) FormatedAvailableBalance() string {
-	if cs.Slot != nil {
+func (cs *ChainState) FormatedAvailableBalance(withSymbol bool) string {
+	if cs.Slot != nil && withSymbol {
 		return fmt.Sprintf("%.8f SC%d", cs.AvailableBalance, *cs.Slot)
 	} else {
 		return fmt.Sprintf("%.8f", cs.AvailableBalance)
 	}
 }
 
-func (cs *ChainState) FormatedPendingBalance() string {
-	if cs.Slot != nil {
+func (cs *ChainState) FormatedPendingBalance(withSymbol bool) string {
+	if cs.Slot != nil && withSymbol {
 		return fmt.Sprintf("%.8f SC%d", cs.PendingBalance, *cs.Slot)
 	} else {
 		return fmt.Sprintf("%.8f", cs.PendingBalance)
@@ -88,6 +89,7 @@ func LaunchChain(cd *ChainData, cs *ChainState) {
 	}
 
 	args := []string{"-conf=" + cd.ConfDir}
+	println(cd.ConfDir)
 	cmd := exec.Command(cd.Dir+string(os.PathSeparator)+cd.BinName, args...)
 
 	err = cmd.Start()
@@ -98,12 +100,14 @@ func LaunchChain(cd *ChainData, cs *ChainState) {
 	println(cd.BinName + " Started...")
 }
 
-func StopChain(chainData ChainData) {
-	// _, err := getChainProcess()
-	// if err != nil {
-	// 	return
-	// }
-	// Shutdown chain gracefully via rpc
+func StopChain(cd *ChainData, cs *ChainState) error {
+	req, err := MakeRpcRequest(cd, "stop", []interface{}{})
+	if err != nil {
+		return err
+	} else {
+		defer req.Body.Close()
+		return nil
+	}
 }
 
 func StartSidechainStateUpdate(as *AppState, mui *MainUI) {
@@ -120,6 +124,7 @@ func StartSidechainStateUpdate(as *AppState, mui *MainUI) {
 				if GetBalance(&as.scd, &as.scs) && !updateUI {
 					updateUI = true
 				}
+				RefreshBMM(&as.scd, &as.scs)
 				if updateUI {
 					mui.Refresh()
 				}
@@ -171,4 +176,83 @@ func GetBalance(cd *ChainData, cs *ChainState) bool {
 		}
 	}
 	return false
+}
+
+func RefreshBMM(cd *ChainData, cs *ChainState) {
+	fee := cd.BMMFee
+	if fee == 0 {
+		fee = 0.001
+	}
+	req, err := MakeRpcRequest(cd, "refreshbmm", []interface{}{fee})
+	if err != nil {
+		println(err.Error())
+	} else {
+		defer req.Body.Close()
+	}
+}
+
+func DepositToSidechain(cd *ChainData, mc *ChainData) {
+}
+
+func WithdrawFromSidechain(cd *ChainData, mc *ChainData, mcAddress string, rfAddress string, amount float64, scfee float64, mcfee float64) error {
+	// TODO: Validate
+	args := []interface{}{
+		mcAddress,
+		rfAddress,
+		amount,
+		scfee,
+		mcfee,
+	}
+	req, err := MakeRpcRequest(cd, "createwithdrawal", args)
+	if err != nil {
+		return err
+	} else {
+		defer req.Body.Close()
+		if req.StatusCode == 200 {
+			return nil
+		} else {
+			PrintRPCErrorResponse(req)
+		}
+		return fmt.Errorf("withdraw request unsuccessful, rpc status code: %v", req.StatusCode)
+	}
+}
+
+func GetSidechainDepositAddress(cd *ChainData) (*string, error) {
+	req, err := MakeRpcRequest(cd, "getnewaddress", []interface{}{"", "legacy"})
+	if err != nil {
+		return nil, err
+	} else {
+		defer req.Body.Close()
+		if req.StatusCode == 200 {
+			var res RPCGetDepositAddressResponse
+			err := json.NewDecoder(req.Body).Decode(&res)
+			if err != nil {
+				return nil, err
+			} else {
+				return &res.Result, nil
+			}
+		} else {
+			return nil, fmt.Errorf("cannot get deposit address, rpc status code: %v", req.StatusCode)
+		}
+	}
+}
+
+func GetDrivechainDepositAddress(mc *ChainData) (*string, error) {
+	req, err := MakeRpcRequest(mc, "getnewaddress", []interface{}{"", "legacy"})
+	if err != nil {
+		return nil, err
+	} else {
+		defer req.Body.Close()
+		if req.StatusCode == 200 {
+			var res RPCGetDepositAddressResponse
+			err := json.NewDecoder(req.Body).Decode(&res)
+			if err != nil {
+				return nil, err
+			} else {
+				return &res.Result, nil
+			}
+		} else {
+			return nil, fmt.Errorf("cannot get deposit address, rpc status code: %v", req.StatusCode)
+		}
+	}
 }
