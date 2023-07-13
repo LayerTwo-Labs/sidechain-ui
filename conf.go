@@ -90,6 +90,7 @@ func ConfInit(as *AppState) {
 	sidechainChainData.BinName = sidechainBinName
 	sidechainChainData.MinimumFee = 0.001 // TODO: Figure out how to estimate this
 	sidechainChainData.BMMFee = 0.001
+	sidechainChainData.RefreshBMM = true
 
 	// Load in sidechain conf
 	loadConf(&sidechainChainData)

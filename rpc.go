@@ -31,6 +31,22 @@ type RPCGetUnconfirmedBalanceResponse struct {
 	Result float64 `json:"result"`
 }
 
+type RPCRefreshBMMResponse struct {
+	Result RefreshBMMResult `json:"result"`
+	Error  interface{}      `json:"error"`
+	ID     string           `json:"id"`
+}
+type RefreshBMMResult struct {
+	HashLastMainBlock      string `json:"hash_last_main_block"`
+	BmmBlockCreated        string `json:"bmm_block_created"`
+	BmmBlockSubmitted      string `json:"bmm_block_submitted"`
+	BmmBlockSubmittedBlind string `json:"bmm_block_submitted_blind"`
+	Ntxn                   int    `json:"ntxn"`
+	Nfees                  int    `json:"nfees"`
+	Txid                   string `json:"txid"`
+	Error                  string `json:"error"`
+}
+
 func MakeRpcRequest(chainData *ChainData, method string, params []interface{}) (*http.Response, error) {
 	auth := chainData.RPCUser + ":" + chainData.RPCPass
 	authBytes := []byte(auth)
@@ -50,7 +66,7 @@ func MakeRpcRequest(chainData *ChainData, method string, params []interface{}) (
 	return client.Do(req)
 }
 
-func PrintRPCErrorResponse(r *http.Response) {
+func PrintNonSuccessRPCResponse(r *http.Response) {
 	println("RPC Error: " + r.Status)
 	println("Response:")
 	buf := new(bytes.Buffer)

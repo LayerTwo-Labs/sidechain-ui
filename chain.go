@@ -12,25 +12,24 @@ import (
 )
 
 type ChainData struct {
-	ParentChain      bool    `json:"parentchain,omitempty"`
-	BinName          string  `json:"binname,omitempty"`
-	Regtest          int     `json:"regtest"`
-	Port             int     `json:"rpcport"`
-	RPCUser          string  `json:"rpcuser"`
-	RPCPass          string  `json:"rpcpassword"`
-	Dir              string  `json:"dir,omitempty"`
-	ConfDir          string  `json:"confdir,omitempty"`
-	DataDir          string  `json:"datadir,omitempty"`
-	Slot             *int    `json:"slot,omitempty"`
-	MinerBreakForBMM *int    `json:"minerbreakforbmm,omitempty"`
-	MinimumFee       float64 `json:"minimumfee,omitempty"`
-	BMMFee           float64 `json:"bmmfee,omitempty"`
+	ParentChain bool    `json:"parentchain,omitempty"`
+	BinName     string  `json:"binname,omitempty"`
+	Regtest     int     `json:"regtest"`
+	Port        int     `json:"rpcport"`
+	RPCUser     string  `json:"rpcuser"`
+	RPCPass     string  `json:"rpcpassword"`
+	Dir         string  `json:"dir,omitempty"`
+	ConfDir     string  `json:"confdir,omitempty"`
+	DataDir     string  `json:"datadir,omitempty"`
+	Slot        *int    `json:"slot,omitempty"`
+	RefreshBMM  bool    `json:"refreshbmm,omitempty"`
+	MinimumFee  float64 `json:"minimumfee,omitempty"`
+	BMMFee      float64 `json:"bmmfee,omitempty"`
 }
 
 type ChainState struct {
 	ID               string  `json:"id"`
 	State            State   `json:"state"`
-	RefreshBMM       bool    `json:"refreshbmm"`
 	AvailableBalance float64 `json:"availablebalance"`
 	PendingBalance   float64 `json:"pendingbalance"`
 	Height           int     `json:"height,omitempty"`
@@ -188,10 +187,18 @@ func RefreshBMM(cd *ChainData, cs *ChainState) {
 		println(err.Error())
 	} else {
 		defer req.Body.Close()
+		if req.StatusCode == 200 {
+			var res RPCRefreshBMMResponse
+			err := json.NewDecoder(req.Body).Decode(&res)
+			if err != nil {
+				println(err.Error())
+			} else {
+				// fmt.Printf("%+v\n", res) TODO:
+			}
+		} else {
+			PrintNonSuccessRPCResponse(req)
+		}
 	}
-}
-
-func DepositToSidechain(cd *ChainData, mc *ChainData) {
 }
 
 func WithdrawFromSidechain(cd *ChainData, mc *ChainData, mcAddress string, rfAddress string, amount float64, scfee float64, mcfee float64) error {
@@ -211,14 +218,20 @@ func WithdrawFromSidechain(cd *ChainData, mc *ChainData, mcAddress string, rfAdd
 		if req.StatusCode == 200 {
 			return nil
 		} else {
-			PrintRPCErrorResponse(req)
+			PrintNonSuccessRPCResponse(req)
 		}
 		return fmt.Errorf("withdraw request unsuccessful, rpc status code: %v", req.StatusCode)
 	}
 }
 
-func GetSidechainDepositAddress(cd *ChainData) (*string, error) {
-	req, err := MakeRpcRequest(cd, "getnewaddress", []interface{}{"", "legacy"})
+func GetSidechainDepositAddress(cd *ChainData, formated bool) (*string, error) {
+	method := "getnewaddress"
+	args := []interface{}{"", "legacy"}
+	if formated {
+		method = "getdepositaddress"
+		args = []interface{}{}
+	}
+	req, err := MakeRpcRequest(cd, method, args)
 	if err != nil {
 		return nil, err
 	} else {
