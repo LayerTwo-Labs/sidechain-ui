@@ -193,11 +193,11 @@ func (pc *ParentChainContentBodyUI) Set(mui *MainUI, c *fyne.Container) {
 	// Set first tab in constructor. Tab bug in fyne.
 	pct := *pc.TabItems
 	firstTab := pct[0]
-	appTabs := container.NewAppTabs(container.NewTabItemWithIcon(firstTab.Name, mui.as.t.Icon(firstTab.IconName), container.NewVBox()))
+	appTabs := container.NewAppTabs(container.NewTabItemWithIcon(firstTab.Name, mui.as.t.Icon(firstTab.IconName), container.NewStack()))
 	currentTabIndex := 0
 	for i, item := range pct {
 		if i > 0 {
-			appTabs.Append(container.NewTabItemWithIcon(item.Name, mui.as.t.Icon(item.IconName), container.NewVBox()))
+			appTabs.Append(container.NewTabItemWithIcon(item.Name, mui.as.t.Icon(item.IconName), container.NewStack()))
 		}
 		if i == pc.SelectedTabIndex {
 			currentTabIndex = i
@@ -217,7 +217,7 @@ func (pc *ParentChainContentBodyUI) Set(mui *MainUI, c *fyne.Container) {
 	}
 
 	appTabs.SelectIndex(currentTabIndex)
-	appTabs.Selected().Content = container.NewVBox()
+	appTabs.Selected().Content = container.NewStack()
 	for i, item := range pct {
 		if i == currentTabIndex {
 			item.ContentBody.Set(mui, appTabs.Selected().Content.(*fyne.Container))
@@ -270,11 +270,11 @@ func (pct *ParentChainTransfersContentUI) Set(mui *MainUI, c *fyne.Container) {
 	// Set first tab in constructor. Tab bug in fyne.
 	ti := *pct.TabItems
 	firstTab := ti[0]
-	appTabs := container.NewAppTabs(container.NewTabItemWithIcon(firstTab.Name, as.t.Icon(firstTab.IconName), container.NewVBox()))
+	appTabs := container.NewAppTabs(container.NewTabItemWithIcon(firstTab.Name, as.t.Icon(firstTab.IconName), container.NewStack()))
 	currentTabIndex := 0
 	for i, item := range ti {
 		if i > 0 {
-			appTabs.Append(container.NewTabItemWithIcon(item.Name, as.t.Icon(item.IconName), container.NewVBox()))
+			appTabs.Append(container.NewTabItemWithIcon(item.Name, as.t.Icon(item.IconName), container.NewStack()))
 		}
 		if i == pct.SelectedTabIndex {
 			currentTabIndex = i
@@ -294,7 +294,7 @@ func (pct *ParentChainTransfersContentUI) Set(mui *MainUI, c *fyne.Container) {
 	}
 
 	appTabs.SelectIndex(currentTabIndex)
-	appTabs.Selected().Content = container.NewVBox()
+	appTabs.Selected().Content = container.NewStack()
 	for i, item := range ti {
 		if i == currentTabIndex {
 			item.ContentBody.Set(mui, appTabs.Selected().Content.(*fyne.Container))
@@ -584,7 +584,7 @@ func (pcbmm *ParentChainBMMContentUI) Set(mui *MainUI, c *fyne.Container) {
 
 	contentBody := container.NewVBox()
 
-	pcbmm.StartBtn = widget.NewButton(" Start ", func() {
+	pcbmm.StartBtn = widget.NewButtonWithIcon(" Auto BMM ", theme.MediaPlayIcon(), func() {
 		mui.as.scd.RefreshBMM = true
 		mui.Refresh()
 	})
@@ -594,7 +594,7 @@ func (pcbmm *ParentChainBMMContentUI) Set(mui *MainUI, c *fyne.Container) {
 		pcbmm.StartBtn.Refresh()
 	}
 
-	pcbmm.StopBtn = widget.NewButton(" Stop ", func() {
+	pcbmm.StopBtn = widget.NewButtonWithIcon(" Stop ", theme.MediaStopIcon(), func() {
 		mui.as.scd.RefreshBMM = false
 		mui.Refresh()
 	})
@@ -632,6 +632,98 @@ func (pcbmm *ParentChainBMMContentUI) Set(mui *MainUI, c *fyne.Container) {
 	contentBody.Add(widget.NewLabel("Your attempts:"))
 
 	// Table of bmm attempts
+	table := widget.NewTableWithHeaders(
+		func() (int, int) {
+			if len(mui.as.scbmmtd) > 0 {
+				return 20, 8 // len(mui.as.scbmmtd), 3
+			} else {
+				return 0, 0
+			}
+		},
+		func() fyne.CanvasObject {
+			l := widget.NewRichTextWithText("template")
+			l.Segments[0].(*widget.TextSegment).Style = widget.RichTextStyle{
+				Alignment: fyne.TextAlignLeading,
+				SizeName:  theme.SizeNameCaptionText,
+				ColorName: theme.ColorNameForeground,
+				TextStyle: fyne.TextStyle{Italic: false, Bold: false},
+			}
+			l.Wrapping = fyne.TextTruncate
+			return l
+		},
+		func(tci widget.TableCellID, co fyne.CanvasObject) {
+			switch tci.Col {
+			case 0:
+				co.(*widget.RichText).Segments[0].(*widget.TextSegment).Text = mui.as.scbmmtd[0].MainchainTxid
+				// co.(*widget.RichText).SetText(mui.as.scbmmtd[0].MainchainTxid)
+			case 1:
+				t := fmt.Sprintf("%d", mui.as.scbmmtd[0].MainchainBlockHeight)
+				co.(*widget.RichText).Segments[0].(*widget.TextSegment).Text = t
+				// co.(*widget.Label).SetText(l)
+			case 2:
+				t := fmt.Sprintf("%d", mui.as.scbmmtd[0].SidechainBlockHeight)
+				co.(*widget.RichText).Segments[0].(*widget.TextSegment).Text = t
+				// co.(*widget.Label).SetText(l)
+			case 3:
+				t := fmt.Sprintf("%d", mui.as.scbmmtd[0].TransactionCount)
+				co.(*widget.RichText).Segments[0].(*widget.TextSegment).Text = t
+				// co.(*widget.Label).SetText(l)
+			case 4:
+				t := fmt.Sprintf("%.8f SC%d", mui.as.scbmmtd[0].Fees, *mui.as.scd.Slot)
+				co.(*widget.RichText).Segments[0].(*widget.TextSegment).Text = t
+				// co.(*widget.Label).SetText(l)
+			case 5:
+				t := fmt.Sprintf("%.8f BTC", mui.as.scbmmtd[0].BidAmount)
+				co.(*widget.RichText).Segments[0].(*widget.TextSegment).Text = t
+				// co.(*widget.Label).SetText(l)
+			case 6:
+				t := fmt.Sprintf("%f SC%d", mui.as.scbmmtd[0].Profit, *mui.as.scd.Slot)
+				// co.(*widget.Label).SetText(l)
+				co.(*widget.RichText).Segments[0].(*widget.TextSegment).Text = t
+			case 7:
+				co.(*widget.RichText).Segments[0].(*widget.TextSegment).Text = mui.as.scbmmtd[0].Status
+				// co.(*widget.Label).SetText(mui.as.scbmmtd[0].Status)
+			}
+			co.(*widget.RichText).Refresh()
+		},
+	)
+	// table.SetColumnWidth(0, 100)
+	table.ShowHeaderColumn = false
+	table.ShowHeaderRow = true
+	table.CreateHeader = func() fyne.CanvasObject {
+		hl := widget.NewRichTextWithText("    Bid Amount    ")
+		hl.Segments[0].(*widget.TextSegment).Style = widget.RichTextStyle{
+			Alignment: fyne.TextAlignLeading,
+			SizeName:  theme.SizeNameCaptionText,
+			ColorName: theme.ColorNameForeground,
+			TextStyle: fyne.TextStyle{Italic: false, Bold: true},
+		}
+		return hl
+	}
+	table.UpdateHeader = func(id widget.TableCellID, template fyne.CanvasObject) {
+		switch id.Col {
+		case 0:
+			template.(*widget.RichText).Segments[0].(*widget.TextSegment).Text = "MC Txid"
+		case 1:
+			template.(*widget.RichText).Segments[0].(*widget.TextSegment).Text = "MC Block"
+		case 2:
+			template.(*widget.RichText).Segments[0].(*widget.TextSegment).Text = "SC Block"
+		case 3:
+			template.(*widget.RichText).Segments[0].(*widget.TextSegment).Text = "Trxn Count"
+		case 4:
+			template.(*widget.RichText).Segments[0].(*widget.TextSegment).Text = "Fees"
+		case 5:
+			template.(*widget.RichText).Segments[0].(*widget.TextSegment).Text = "Bid Amount"
+		case 6:
+			template.(*widget.RichText).Segments[0].(*widget.TextSegment).Text = "Profit"
+		case 7:
+			template.(*widget.RichText).Segments[0].(*widget.TextSegment).Text = "Status"
+		}
+	}
+
+	table.Refresh()
+
+	// contentBody.Add(container.NewBorder(nil, nil, nil, nil, table))
 
 	contentBackground := NewThemedRectangle(theme.ColorNameBackground)
 	contentBackground.CornerRadius = 6
@@ -640,20 +732,20 @@ func (pcbmm *ParentChainBMMContentUI) Set(mui *MainUI, c *fyne.Container) {
 	contentBackground.Refresh()
 
 	contentConainer := container.NewStack(contentBackground)
-	contentConainer.Add(contentBody)
+	contentConainer.Add(container.NewBorder(contentBody, nil, nil, nil, container.NewPadded(table)))
 
 	c.Add(container.NewPadded(container.NewPadded(contentConainer)))
 	c.Refresh()
 }
 
 func (pcbmm *ParentChainBMMContentUI) Refresh(mui *MainUI, c *fyne.Container) {
-	if mui.as.scd.RefreshBMM {
-		pcbmm.StartBtn.Disable()
-		pcbmm.StopBtn.Enable()
-	} else {
-		pcbmm.StartBtn.Enable()
-		pcbmm.StopBtn.Disable()
-	}
-	pcbmm.StartBtn.Refresh()
-	pcbmm.StopBtn.Refresh()
+	// if mui.as.scd.RefreshBMM {
+	// 	pcbmm.StartBtn.Disable()
+	// 	pcbmm.StopBtn.Enable()
+	// } else {
+	// 	pcbmm.StartBtn.Enable()
+	// 	pcbmm.StopBtn.Disable()
+	// }
+	// pcbmm.StartBtn.Refresh()
+	// pcbmm.StopBtn.Refresh()
 }

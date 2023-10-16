@@ -22,41 +22,34 @@ var sidechainConfBytes []byte
 
 // TODO: Make these configurable in UI
 const (
-	sidechainDirName = "testchain"
+	sidechainDirName = ".testchain"
 	// sidechainBinName = "testchain-qt"
 	sidechainBinName   = "testchaind"
 	sidechainConfName  = "testchain.conf"
 	drivechainConfName = "drivechain.conf"
 )
 
-func ConfInit(as *AppState) {
+func ConfInit(as *AppState) error {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	switchboardDir := homeDir + string(os.PathSeparator) + ".switchboard3" + string(os.PathSeparator) + "data"
-
-	// Look for drivechain in launcher dir
-	drivechainDir := switchboardDir + string(os.PathSeparator) + "drivechain"
+	drivechainDir := homeDir + string(os.PathSeparator) + ".drivechain"
 	if _, err := os.Stat(drivechainDir); os.IsNotExist(err) {
-		log.Fatal(err)
+		println(err.Error())
+		return err
 	}
 
-	// Look for drivechain.conf and bail if not found
-	// TODO: Write our own and restart if not found?
 	drivechainConfDir := drivechainDir + string(os.PathSeparator) + drivechainConfName
 	if _, err := os.Stat(drivechainConfDir); os.IsNotExist(err) {
-		// drivechain.conf not found. Bail
-		log.Fatal(err)
-		// err = os.WriteFile(drivechainConfDir, drivechainConfBytes, 0o755)
-		// if err != nil {
-		// 	log.Fatal(err)
-		// }
+		// drivechain.conf not found.
+		// TODO: Ask user for location of drivechain.conf
+		println(err.Error())
+		return err
 	}
-
 	// Look for sidechain dir and create if not found
-	sidechainDir := switchboardDir + string(os.PathSeparator) + sidechainDirName
+	sidechainDir := homeDir + string(os.PathSeparator) + sidechainDirName
 	if _, err := os.Stat(sidechainDir); os.IsNotExist(err) {
 		os.MkdirAll(sidechainDir, 0o755)
 	}
@@ -68,7 +61,8 @@ func ConfInit(as *AppState) {
 		sidechainConfBytes = append(sidechainConfBytes, "\ndatadir="+sidechainDir...)
 		err = os.WriteFile(sidechainConfDir, sidechainConfBytes, 0o755)
 		if err != nil {
-			log.Fatal(err)
+			println(err.Error())
+			return err
 		}
 	}
 
@@ -98,6 +92,9 @@ func ConfInit(as *AppState) {
 	as.scs = ChainState{}
 	as.scs.Slot = as.scd.Slot
 
+	// Init data
+	as.scbmmtd = []BMMTableItem{}
+
 	// Write sidechain binary
 	target := runtime.GOOS
 	switch target {
@@ -109,17 +106,21 @@ func ConfInit(as *AppState) {
 			err = os.WriteFile(binDr, linuxBytes, 0o755)
 			if err != nil {
 				log.Fatal(err)
+				println(err.Error())
+				return err
 			}
 		}
 	case "windows":
 		break
 	}
+	return nil
 }
 
-func loadConf(chainData *ChainData) {
+func loadConf(chainData *ChainData) error {
 	readFile, err := os.Open(chainData.ConfDir)
 	if err != nil {
-		log.Fatal(err)
+		println(err.Error())
+		return err
 	}
 
 	fileScanner := bufio.NewScanner(readFile)
@@ -153,6 +154,8 @@ func loadConf(chainData *ChainData) {
 	jsonData, _ := json.Marshal(confMap)
 	err = json.Unmarshal(jsonData, &chainData)
 	if err != nil {
-		log.Fatal(err)
+		println(err.Error())
+		return err
 	}
+	return nil
 }

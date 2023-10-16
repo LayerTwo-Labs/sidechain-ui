@@ -36,6 +36,17 @@ type ChainState struct {
 	Slot             *int    `json:"slot,omitempty"`
 }
 
+type BMMTableItem struct {
+	MainchainTxid        string  `json:"mainchain_txid"`
+	MainchainBlockHeight int     `json:"mainchain_block_height"`
+	SidechainBlockHeight int     `json:"sidechain_block_height"`
+	TransactionCount     int     `json:"transaction_count"`
+	Fees                 float64 `json:"fees"`
+	BidAmount            float64 `json:"bid_amount"`
+	Profit               float64 `json:"profit"`
+	Status               string  `json:"status"`
+}
+
 func (cs *ChainState) FormatedAvailableBalance(withSymbol bool) string {
 	if cs.Slot != nil && withSymbol {
 		return fmt.Sprintf("%.8f SC%d", cs.AvailableBalance, *cs.Slot)
@@ -123,7 +134,7 @@ func StartSidechainStateUpdate(as *AppState, mui *MainUI) {
 				if GetBalance(&as.scd, &as.scs) && !updateUI {
 					updateUI = true
 				}
-				RefreshBMM(&as.scd, &as.scs)
+				RefreshBMM(as)
 				if updateUI {
 					mui.Refresh()
 				}
@@ -177,12 +188,12 @@ func GetBalance(cd *ChainData, cs *ChainState) bool {
 	return false
 }
 
-func RefreshBMM(cd *ChainData, cs *ChainState) {
-	fee := cd.BMMFee
+func RefreshBMM(as *AppState) {
+	fee := as.scd.BMMFee
 	if fee == 0 {
 		fee = 0.001
 	}
-	req, err := MakeRpcRequest(cd, "refreshbmm", []interface{}{fee})
+	req, err := MakeRpcRequest(&as.scd, "refreshbmm", []interface{}{fee})
 	if err != nil {
 		println(err.Error())
 	} else {
@@ -193,7 +204,30 @@ func RefreshBMM(cd *ChainData, cs *ChainState) {
 			if err != nil {
 				println(err.Error())
 			} else {
-				// fmt.Printf("%+v\n", res) TODO:
+				item := BMMTableItem{
+					MainchainTxid:        res.Result.Txid,
+					MainchainBlockHeight: as.pcs.Height + 1,
+					SidechainBlockHeight: as.scs.Height + 1,
+					TransactionCount:     res.Result.Ntxn,
+					Fees:                 float64(res.Result.Nfees) * 0.00000001, // TODO: Check conversion
+					BidAmount:            as.scd.BMMFee,
+					Profit:               (float64(res.Result.Nfees) * 0.00000001) - as.scd.BMMFee, // TODO: Check conversion
+					Status:               res.Result.Error,                                         // TODO:
+				}
+				fmt.Printf("%+v\n", item)
+
+				for _, v := range as.scbmmtd {
+					if v.MainchainTxid == item.MainchainTxid {
+						return
+					}
+				}
+
+				if len(as.scbmmtd) == 0 {
+					as.scbmmtd = append(as.scbmmtd, item)
+				}
+
+				// as.scbmmtd = append(as.scbmmtd, item)
+				// fmt.Printf("%+v\n", res)
 			}
 		} else {
 			PrintNonSuccessRPCResponse(req)

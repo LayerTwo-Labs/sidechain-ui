@@ -1,0 +1,8 @@
+Website = "https://github.com/ismyhc/sidechain-ui"
+
+[Details]
+  Icon = "AppIcon.png"
+  Name = "Testchain"
+  ID = "com.layertwolabs.testchain"
+  Version = "0.1.0"
+  Build = 3

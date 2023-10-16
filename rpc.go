@@ -36,6 +36,7 @@ type RPCRefreshBMMResponse struct {
 	Error  interface{}      `json:"error"`
 	ID     string           `json:"id"`
 }
+
 type RefreshBMMResult struct {
 	HashLastMainBlock      string `json:"hash_last_main_block"`
 	BmmBlockCreated        string `json:"bmm_block_created"`

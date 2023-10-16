@@ -15,7 +15,10 @@ var (
 func main() {
 	as = NewAppState("com.ismyhc.sidechain-ui", "")
 	mui = NewMainUi(as)
-	ConfInit(as)
+	err := ConfInit(as)
+	if err != nil {
+		// TODO: Handle error. For now just exit
+	}
 
 	// Launch Chain
 	LaunchChain(&as.scd, &as.scs)

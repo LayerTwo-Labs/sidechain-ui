@@ -19,14 +19,15 @@ type NavigationState struct {
 }
 
 type AppState struct {
-	a   fyne.App
-	w   fyne.Window
-	t   SidechainTheme
-	ns  NavigationState
-	pcd ChainData
-	scd ChainData
-	pcs ChainState
-	scs ChainState
+	a       fyne.App
+	w       fyne.Window
+	t       SidechainTheme
+	ns      NavigationState
+	pcd     ChainData
+	scd     ChainData
+	pcs     ChainState
+	scs     ChainState
+	scbmmtd []BMMTableItem
 }
 
 func NewAppState(id string, title string) *AppState {
