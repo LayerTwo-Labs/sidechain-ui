@@ -29,6 +29,8 @@ Then use embed in the conf.go file.
 
 You can see this already happening wth testchand.
 
+![screenshot](https://github.com/LayerTwo-Labs/sidechain-ui/blob/main/screenshot.png)
+
 ### LICENSE
 
 MIT License
